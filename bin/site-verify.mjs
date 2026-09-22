@@ -337,9 +337,16 @@ if (content) {
     html.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   // A meta-refresh page is a redirect, and having no text is the whole point.
   const isRedirect = (html) => /<meta[^>]+http-equiv=["']?refresh/i.test(html)
+  // An app shell is *supposed* to be empty: the content arrives when JavaScript
+  // runs. That case is the render check's job, and flagging it here would fail
+  // every single-page app. The two checks are complements, not duplicates.
+  const isAppShell = (html) => {
+    const i = html.indexOf(cfg.rootSelector)
+    return i !== -1 && html.slice(i + cfg.rootSelector.length).trimStart().startsWith('</div>')
+  }
   const thin = pages
     .map((p) => ({ page: relative(DIST, p), html: readFileSync(p, 'utf8') }))
-    .filter((r) => !isRedirect(r.html))
+    .filter((r) => !isRedirect(r.html) && !isAppShell(r.html))
     .map((r) => ({ page: r.page, chars: visible(r.html).length }))
     .filter((r) => r.chars < cfg.minContentChars)
   if (thin.length) {
@@ -351,7 +358,7 @@ if (content) {
         '  build or a template whose content did not get substituted. If a page is\n' +
         '  legitimately this short, lower `verify.minContentChars` in site.json.',
     )
-  } else pass(`all ${pages.length} pages carry content (thinnest: ${Math.min(...pages.map((p) => visible(readFileSync(p, 'utf8')).length))} chars)`)
+  } else pass(`all ${pages.length} pages carry content`)
 }
 
 // 9 — the page actually renders in a browser (for sites whose content is
