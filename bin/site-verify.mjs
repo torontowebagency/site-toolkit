@@ -31,7 +31,7 @@ import { createServer } from 'node:http'
 import { execFile, execFileSync } from 'node:child_process'
 import { promisify } from 'node:util'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
-import { join, extname, resolve } from 'node:path'
+import { join, extname, resolve, relative } from 'node:path'
 
 const execFileAsync = promisify(execFile)
 
@@ -56,6 +56,8 @@ const cfg = {
   entryHtml: 'index.html',
   rootSelector: '<div id="root">',
   minRenderBytes: 5000,
+  /** Minimum visible characters per built page (the no-browser render check). */
+  minContentChars: 400,
   /** null = do not check. An array = the only runtime deps permitted. */
   allowedDependencies: null,
   /** Scripts in the source HTML that are expected and therefore not flagged. */
@@ -79,6 +81,7 @@ const DEFAULT_SEVERITY = {
   'media-overwritten': 'error',
   'media-unreferenced': 'warn',
   'render': 'error',
+  'content-size': 'error',
   'render-skipped': 'warn',
 }
 /** 'error' blocks, 'warn' reports, 'off' skips entirely. */
@@ -318,7 +321,37 @@ if (content) {
   }
 }
 
-// 8 — the page actually renders (the check that earns the others)
+// 8 — every built page carries real content (the static-site counterpart of the
+//      render check: no browser, no timing, just "is there text on the page")
+{
+  const pages = []
+  const walk = (dir) => {
+    for (const e of readdirSync(dir)) {
+      const p = join(dir, e)
+      if (statSync(p).isDirectory()) walk(p)
+      else if (p.endsWith('.html')) pages.push(p)
+    }
+  }
+  walk(DIST)
+  const visible = (html) =>
+    html.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const thin = pages
+    .map((p) => ({ page: relative(DIST, p), chars: visible(readFileSync(p, 'utf8')).length }))
+    .filter((r) => r.chars < cfg.minContentChars)
+  if (thin.length) {
+    fail(
+      'content-size',
+      `${thin.length} of ${pages.length} built page(s) contain almost no text`,
+      thin.slice(0, 12).map((t) => `    ${t.page}  —  ${t.chars} chars`).join('\n') +
+        `\n\n  A page under ${cfg.minContentChars} characters of visible text is usually a broken\n` +
+        '  build or a template whose content did not get substituted. If a page is\n' +
+        '  legitimately this short, lower `verify.minContentChars` in site.json.',
+    )
+  } else pass(`all ${pages.length} pages carry content (thinnest: ${Math.min(...pages.map((p) => visible(readFileSync(p, 'utf8')).length))} chars)`)
+}
+
+// 9 — the page actually renders in a browser (for sites whose content is
+//     produced by JavaScript; irrelevant, and often unreliable, for static HTML)
 {
   const chrome = findChrome()
   if (!chrome) {
