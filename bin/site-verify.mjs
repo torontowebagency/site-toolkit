@@ -335,8 +335,12 @@ if (content) {
   walk(DIST)
   const visible = (html) =>
     html.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  // A meta-refresh page is a redirect, and having no text is the whole point.
+  const isRedirect = (html) => /<meta[^>]+http-equiv=["']?refresh/i.test(html)
   const thin = pages
-    .map((p) => ({ page: relative(DIST, p), chars: visible(readFileSync(p, 'utf8')).length }))
+    .map((p) => ({ page: relative(DIST, p), html: readFileSync(p, 'utf8') }))
+    .filter((r) => !isRedirect(r.html))
+    .map((r) => ({ page: r.page, chars: visible(r.html).length }))
     .filter((r) => r.chars < cfg.minContentChars)
   if (thin.length) {
     fail(
