@@ -81,6 +81,7 @@ const DEFAULT_SEVERITY = {
   'render': 'error',
   'render-skipped': 'warn',
 }
+/** 'error' blocks, 'warn' reports, 'off' skips entirely. */
 const severityOf = (id) => cfg.severity[id] ?? DEFAULT_SEVERITY[id] ?? 'error'
 
 const DIST = join(ROOT, cfg.distDir)
@@ -129,6 +130,7 @@ const pass = (msg) => emit({ level: 'pass', msg })
 /** Report a problem at its configured severity, downgraded if waved through. */
 const problem = (id, msg, detail) => {
   const base = severityOf(id)
+  if (base === 'off') return
   const level = base === 'error' && allowed(id) ? 'warn' : base
   emit({ level, id, msg, detail, overridden: base === 'error' && allowed(id) })
 }
@@ -230,14 +232,16 @@ if (content) {
 
 // 3 — media filenames stay URL-safe
 {
-  const bad = mediaFiles.filter((f) => /[^a-z0-9._-]/.test(f))
+  // Uppercase is valid in URLs and ubiquitous in site-builder exports, so it is
+  // not flagged. Spaces, quotes, #, ? and friends genuinely break links.
+  const bad = mediaFiles.filter((f) => /[\s"'#?&%<>\\|(){}\[\]]|[^\x20-\x7e]/.test(f))
   if (bad.length) {
     fail(
       'media-filenames',
       `${bad.length} media filename(s) are not URL-safe: ${bad.join(', ')}`,
-      '  Use lowercase letters, digits, dots, hyphens, underscores. Spaces and parentheses\n' +
-        '  break on some CDNs and in some email clients. Rename the file and update the\n' +
-        '  reference to it.',
+      '  Spaces, quotes and URL-reserved characters break links on some CDNs and in some\n' +
+        '  email clients. Rename the file to use letters, digits, dots, hyphens or\n' +
+        '  underscores, and update whatever references it.',
     )
   } else pass('media filenames are URL-safe')
 }
