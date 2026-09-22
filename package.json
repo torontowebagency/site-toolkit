@@ -1,0 +1,20 @@
+{
+  "name": "@torontowebagency/site-toolkit",
+  "version": "1.0.0",
+  "description": "Shared pre-deploy verification for Toronto Web Agency client sites.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/torontowebagency/site-toolkit.git"
+  },
+  "bin": {
+    "site-verify": "bin/site-verify.mjs"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}
