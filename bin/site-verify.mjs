@@ -306,7 +306,7 @@ if (content) {
           '  Browsers and the CDN key their caches on the URL, so an overwritten file can keep\n' +
           '  showing the OLD image to visitors for hours after this repo is correct. Adding a\n' +
           '  new filename and repointing the content avoids that entirely — a new URL is never\n' +
-          '  stale. If you meant to overwrite, this warning is safe to ignore.',
+          '  stale. If you meant to overwrite, wave it through: `verify-allow: media-overwritten`.',
       )
     } else pass('no photos replaced in place')
   } catch {
